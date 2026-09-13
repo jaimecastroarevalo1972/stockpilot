@@ -124,9 +124,15 @@ with tab_buy:
 
     st.subheader(f"Resumen de compras por proveedor (USD {money(buy['costo_compra_sugerida'].sum())})")
     st.markdown(f"**Críticos — Total: USD {money(urgent['costo_compra_sugerida'].sum())}**")
-    st.dataframe(urgent_summary, use_container_width=True, hide_index=True) if not urgent_summary.empty else st.info("No hay compras críticas.")
+    if urgent_summary.empty:
+        st.info("No hay compras críticas.")
+    else:
+        st.dataframe(urgent_summary, use_container_width=True, hide_index=True)
     st.markdown(f"**Prioridad alta — Total: USD {money(high['costo_compra_sugerida'].sum())}**")
-    st.dataframe(high_summary, use_container_width=True, hide_index=True) if not high_summary.empty else st.info("No hay compras de prioridad alta.")
+    if high_summary.empty:
+        st.info("No hay compras de prioridad alta.")
+    else:
+        st.dataframe(high_summary, use_container_width=True, hide_index=True)
 
 with tab_provider:
     st.subheader("Información de proveedores")
