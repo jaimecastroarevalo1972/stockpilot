@@ -119,10 +119,29 @@ def calculate_recommendations(sheets, history_days=56, excess_days=30):
     return result.sort_values(["orden", "dias_cobertura", "nombre_producto"]).reset_index(drop=True)
 
 def build_message(result, limit=8):
-    buy = result[result["cantidad_sugerida"] > 0]
-    lines = ["RECOMENDACIONES DE COMPRA", "", f"Productos por comprar: {len(buy)}", f"Compra sugerida: USD {buy['costo_compra_sugerida'].sum():,.2f}", ""]
-    for _, r in buy.head(limit).iterrows():
-        pack = "paquete" if r["paquetes_sugeridos"] == 1 else "paquetes"
-        lines += [f"{r['prioridad']} - {r['nombre_producto']}", f"Comprar {r['cantidad_sugerida']:.0f} unidades ({r['paquetes_sugeridos']:.0f} {pack}).", r["explicacion"], ""]
-    if len(buy) > limit: lines.append(f"Además, hay {len(buy)-limit} productos por revisar.")
+    buy = result[result["cantidad_sugerida"] > 0].head(limit)
+    total_buy = result[result["cantidad_sugerida"] > 0]
+    report_date = result["fecha_inventario"].max().strftime("%d/%m/%y")
+    total_cost = f"{total_buy['costo_compra_sugerida'].sum():,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    lines = ["📦 *STOCKPILOT – COMPRA SUGERIDA*", f"🗓️ {report_date}", ""]
+    for provider, group in buy.groupby("proveedor", sort=False):
+        lines.append(f"*{provider}*")
+        for _, r in group.iterrows():
+            icon = "🔴" if r["prioridad"] == "URGENTE" else "🟠"
+            pack = "paquete" if r["paquetes_sugeridos"] == 1 else "paquetes"
+            if math.isfinite(r["dias_cobertura"]):
+                coverage_days = round(r["dias_cobertura"])
+                coverage = f"{coverage_days} día" if coverage_days == 1 else f"{coverage_days} días"
+            else:
+                coverage = "sin cálculo"
+            next_visit = r["proxima_visita_calculada"].strftime("%d/%m")
+            lines += [
+                f"{icon} {r['nombre_producto']}",
+                f"  Comprar: *{r['cantidad_sugerida']:.0f} unidades ({r['paquetes_sugeridos']:.0f} {pack})*",
+                f"  Stock: {r['cantidad_disponible']:.0f} · Cobertura: {coverage} · Próxima visita: {next_visit}",
+            ]
+        lines.append("")
+    lines += [f"💰 *Compra estimada: USD {total_cost}*", f"📋 Productos por comprar: {len(total_buy)}"]
+    if len(total_buy) > limit:
+        lines.append(f"Además, hay {len(total_buy)-limit} productos por revisar en StockPilot.")
     return "\n".join(lines)
