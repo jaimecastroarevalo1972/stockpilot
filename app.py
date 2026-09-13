@@ -69,7 +69,7 @@ def recommendation_cards(data, icon):
 
 st.set_page_config(page_title="StockPilot", page_icon="📦", layout="wide")
 st.title("StockPilot")
-st.caption("Recomendaciones de compra e inventario para tiendas y micromercados · versión 0.12")
+st.caption("Recomendaciones de compra e inventario para tiendas y micromercados · versión 0.12.1")
 with st.sidebar:
     st.header("Configuración")
     history_days = st.slider("Días de ventas para analizar", 14, 90, 56, 7)
@@ -191,8 +191,8 @@ with tab_products:
 with tab_whatsapp:
     st.subheader("Enviar por WhatsApp")
     st.caption("Revise las recomendaciones y elija qué pedido desea enviar.")
-    critical_message = build_message(result, limit=12, priorities=["URGENTE"])
-    full_message = build_message(result, limit=12, priorities=["URGENTE", "COMPRAR"])
+    critical_message = build_message(result[result["prioridad"] == "URGENTE"], limit=12)
+    full_message = build_message(result, limit=12)
     critical_url = "https://wa.me/?text=" + quote(critical_message, safe="")
     full_url = "https://wa.me/?text=" + quote(full_message, safe="")
     button_critical, button_full = st.columns(2)
