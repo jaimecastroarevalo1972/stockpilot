@@ -5,7 +5,7 @@ from inventory_engine import load_workbook, calculate_recommendations, build_mes
 
 st.set_page_config(page_title="StockPilot", page_icon="📦", layout="wide")
 st.title("StockPilot")
-st.caption("Recomendaciones de compra e inventario para tiendas y micromercados · versión 0.6")
+st.caption("Recomendaciones de compra e inventario para tiendas y micromercados · versión 0.7")
 with st.sidebar:
     st.header("Configuración")
     history_days = st.slider("Días de ventas para analizar", 14, 90, 56, 7)
@@ -21,6 +21,8 @@ except Exception as exc:
     st.error(f"No se pudo procesar el archivo: {exc}")
     st.stop()
 buy = result[result["cantidad_sugerida"] > 0]
+excess = result[result["prioridad"] == "EXCESO"].copy()
+excess["valor_inventario"] = excess["cantidad_disponible"] * excess["costo_unitario"]
 days_used = int(result["dias_analizados"].iloc[0])
 start_used = result["fecha_inicio_promedio"].iloc[0].strftime("%d/%m/%y")
 end_used = result["fecha_fin_promedio"].iloc[0].strftime("%d/%m/%y")
@@ -60,16 +62,36 @@ with tab_buy:
                     f"**Proveedor:** {row['proveedor']}  \n"
                     f"**Presentación:** {row['paquetes_sugeridos']:.0f} {pack}  \n"
                     f"**Stock actual:** {row['cantidad_disponible']:.0f} unidades  \n"
+                    f"**Venta promedio:** {row['venta_promedio_diaria']:.2f} unidades por día  \n"
                     f"**Cobertura:** {coverage}  \n"
                     f"**Próxima visita:** {next_visit}  \n"
                     f"**Costo estimado:** USD {row['costo_compra_sugerida']:,.2f}"
                 )
-        compact = buy[["prioridad","nombre_producto","cantidad_sugerida","paquetes_sugeridos","proveedor","cantidad_disponible","dias_cobertura","proxima_visita_calculada","costo_compra_sugerida"]].copy()
+        compact = buy[["prioridad","nombre_producto","venta_promedio_diaria","cantidad_disponible","dias_cobertura","cantidad_sugerida","paquetes_sugeridos","proveedor","proxima_visita_calculada","costo_compra_sugerida"]].copy()
         compact["proxima_visita_calculada"] = compact["proxima_visita_calculada"].dt.strftime("%d/%m/%y")
         compact["dias_cobertura"] = compact["dias_cobertura"].replace(float("inf"), pd.NA).round(1)
-        compact = compact.rename(columns={"prioridad":"Prioridad","nombre_producto":"Producto","cantidad_sugerida":"Comprar","paquetes_sugeridos":"Paquetes","proveedor":"Proveedor","cantidad_disponible":"Stock","dias_cobertura":"Cobertura (días)","proxima_visita_calculada":"Próxima visita","costo_compra_sugerida":"Costo USD"})
+        compact["venta_promedio_diaria"] = compact["venta_promedio_diaria"].round(2)
+        compact = compact.rename(columns={"prioridad":"Prioridad","nombre_producto":"Producto","venta_promedio_diaria":"Venta diaria","cantidad_disponible":"Stock","dias_cobertura":"Cobertura (días)","cantidad_sugerida":"Comprar","paquetes_sugeridos":"Paquetes","proveedor":"Proveedor","proxima_visita_calculada":"Próxima visita","costo_compra_sugerida":"Costo USD"})
         with st.expander("Ver tabla compacta"):
             st.dataframe(compact, use_container_width=True, hide_index=True)
+
+    st.subheader("Exceso de inventario")
+    if excess.empty:
+        st.success("No hay productos con cobertura superior al límite configurado.")
+    else:
+        st.caption(f"Productos con más de {excess_days} días de cobertura.")
+        excess_view = excess[["nombre_producto","proveedor","venta_promedio_diaria","cantidad_disponible","dias_cobertura","valor_inventario"]].copy()
+        excess_view["venta_promedio_diaria"] = excess_view["venta_promedio_diaria"].round(2)
+        excess_view["dias_cobertura"] = excess_view["dias_cobertura"].round(1)
+        excess_view = excess_view.rename(columns={"nombre_producto":"Producto","proveedor":"Proveedor","venta_promedio_diaria":"Venta diaria","cantidad_disponible":"Stock","dias_cobertura":"Cobertura (días)","valor_inventario":"Valor inventario USD"})
+        st.dataframe(excess_view, use_container_width=True, hide_index=True)
+
+    st.subheader("Resumen de compras por proveedor")
+    if summary.empty:
+        st.info("No hay compras sugeridas para resumir.")
+    else:
+        summary_main = summary.rename(columns={"proveedor":"Proveedor","productos":"Productos","unidades":"Unidades","costo":"Costo USD"})
+        st.dataframe(summary_main, use_container_width=True, hide_index=True)
 
 with tab_provider:
     st.subheader("Compra por proveedor")
