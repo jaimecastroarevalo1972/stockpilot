@@ -5,7 +5,7 @@ from inventory_engine import load_workbook, calculate_recommendations, build_mes
 
 st.set_page_config(page_title="StockPilot", page_icon="📦", layout="wide")
 st.title("StockPilot")
-st.caption("Recomendaciones de compra e inventario para tiendas y micromercados · versión 0.4")
+st.caption("Recomendaciones de compra e inventario para tiendas y micromercados · versión 0.5")
 with st.sidebar:
     st.header("Configuración")
     history_days = st.slider("Días de ventas para analizar", 14, 90, 56, 7)
@@ -38,7 +38,7 @@ c1,c2,c3,c4 = st.columns(4)
 c1.metric("Productos analizados", len(result)); c2.metric("Compra urgente", (result["prioridad"]=="URGENTE").sum())
 c3.metric("Productos por comprar", len(buy)); c4.metric("Costo sugerido", f"USD {buy['costo_compra_sugerida'].sum():,.2f}")
 st.subheader("Recomendaciones prioritarias")
-cols=["prioridad","nombre_producto","proveedor","dias_analizados","fecha_inventario","frecuencia_visita_dias","proxima_visita_calculada","cantidad_disponible","venta_promedio_diaria","dias_cobertura","cantidad_sugerida","costo_compra_sugerida","explicacion"]
+cols=["prioridad","nombre_producto","proveedor","dias_analizados","fecha_inventario","fecha_ultima_visita","frecuencia_visita_dias","proxima_visita_calculada","cantidad_disponible","venta_promedio_diaria","dias_cobertura","cantidad_sugerida","costo_compra_sugerida","explicacion"]
 st.dataframe(result[cols].replace(float("inf"), pd.NA), use_container_width=True, hide_index=True)
 left,right=st.columns([1.1,.9])
 summary=buy.groupby("proveedor",as_index=False).agg(productos=("codigo_producto","count"),unidades=("cantidad_sugerida","sum"),costo=("costo_compra_sugerida","sum")).sort_values("costo",ascending=False)

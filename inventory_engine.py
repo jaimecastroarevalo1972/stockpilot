@@ -5,7 +5,7 @@ REQUIRED = {
     "Productos": {"codigo_producto", "nombre_producto", "categoria", "proveedor", "unidades_por_paquete", "costo_unitario", "activo"},
     "Ventas": {"fecha", "codigo_producto", "cantidad_vendida"},
     "Inventario": {"fecha_inventario", "codigo_producto", "cantidad_disponible"},
-    "Proveedores": {"proveedor", "frecuencia_visita_dias", "fecha_proxima_visita", "dias_entrega", "dias_stock_seguridad"},
+    "Proveedores": {"proveedor", "frecuencia_visita_dias", "fecha_ultima_visita", "dias_entrega", "dias_stock_seguridad"},
 }
 
 def load_workbook(source):
@@ -54,15 +54,21 @@ def calculate_recommendations(sheets, history_days=56, excess_days=30):
     sales_end_date = sales["fecha"].max().normalize()
     sales_first_date = sales["fecha"].min().normalize()
     analysis_date = max(sales_end_date, stock["fecha_inventario"].max()).normalize()
-    providers["fecha_proxima_visita"] = pd.to_datetime(providers["fecha_proxima_visita"], errors="coerce")
-    if providers["fecha_proxima_visita"].isna().any():
-        raise ValueError("Proveedores contiene fechas de próxima visita no válidas.")
+    providers["fecha_ultima_visita"] = pd.to_datetime(providers["fecha_ultima_visita"], errors="coerce")
+    if providers["fecha_ultima_visita"].isna().any():
+        raise ValueError("Proveedores contiene fechas de última visita no válidas.")
     for column in ["frecuencia_visita_dias", "dias_entrega", "dias_stock_seguridad"]:
         providers[column] = pd.to_numeric(providers[column], errors="coerce")
     if providers[["frecuencia_visita_dias", "dias_entrega", "dias_stock_seguridad"]].isna().any(axis=None) or (providers["frecuencia_visita_dias"] <= 0).any():
         raise ValueError("Revise la frecuencia, entrega y seguridad de los proveedores.")
+    if (providers["fecha_ultima_visita"].dt.normalize() > analysis_date).any():
+        invalid = providers.loc[
+            providers["fecha_ultima_visita"].dt.normalize() > analysis_date,
+            "proveedor",
+        ].astype(str).head(5).tolist()
+        raise ValueError("La fecha de última visita no puede ser posterior a la fecha de análisis. Revise: " + ", ".join(invalid) + ".")
     def normalize_next_visit(row):
-        next_date = row["fecha_proxima_visita"].normalize()
+        next_date = row["fecha_ultima_visita"].normalize() + pd.Timedelta(days=row["frecuencia_visita_dias"])
         if next_date < analysis_date:
             elapsed = (analysis_date - next_date).days
             cycles = math.ceil(elapsed / row["frecuencia_visita_dias"])
