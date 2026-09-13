@@ -10,22 +10,18 @@ def money(value):
 
 def provider_summary(data):
     if data.empty:
-        return pd.DataFrame(columns=["Proveedor", "N.º de productos", "Detalle de compra", "Total de unidades", "Costo USD"])
+        return pd.DataFrame(columns=["Proveedor", "Pedido (paquetes × unidades)", "Costo USD"])
     rows = []
     for provider, group in data.groupby("proveedor", sort=False):
         details = []
         for _, row in group.iterrows():
             packages = int(row["paquetes_sugeridos"])
-            package_word = "paquete" if packages == 1 else "paquetes"
             details.append(
-                f"{row['nombre_producto']}: {row['cantidad_sugerida']:.0f} unidades "
-                f"({packages} {package_word} de {row['unidades_por_paquete']:.0f})"
+                f"{row['nombre_producto']}: {packages} × {row['unidades_por_paquete']:.0f}"
             )
         rows.append({
             "Proveedor": provider,
-            "N.º de productos": group["codigo_producto"].nunique(),
-            "Detalle de compra": "; ".join(details),
-            "Total de unidades": group["cantidad_sugerida"].sum(),
+            "Pedido (paquetes × unidades)": " · ".join(details),
             "Costo USD": group["costo_compra_sugerida"].sum(),
         })
     return pd.DataFrame(rows).sort_values("Costo USD", ascending=False)
@@ -57,7 +53,7 @@ def recommendation_cards(data, icon):
 
 st.set_page_config(page_title="StockPilot", page_icon="📦", layout="wide")
 st.title("StockPilot")
-st.caption("Recomendaciones de compra e inventario para tiendas y micromercados · versión 0.9")
+st.caption("Recomendaciones de compra e inventario para tiendas y micromercados · versión 0.10")
 with st.sidebar:
     st.header("Configuración")
     history_days = st.slider("Días de ventas para analizar", 14, 90, 56, 7)
