@@ -118,9 +118,11 @@ def calculate_recommendations(sheets, history_days=56, excess_days=30):
     result["explicacion"] = result.apply(explanation, axis=1)
     return result.sort_values(["orden", "dias_cobertura", "nombre_producto"]).reset_index(drop=True)
 
-def build_message(result, limit=8):
-    buy = result[result["cantidad_sugerida"] > 0].head(limit)
+def build_message(result, limit=8, priorities=None):
     total_buy = result[result["cantidad_sugerida"] > 0]
+    if priorities is not None:
+        total_buy = total_buy[total_buy["prioridad"].isin(priorities)]
+    buy = total_buy.head(limit)
     report_date = result["fecha_inventario"].max().strftime("%d/%m/%y")
     def money_es(value):
         return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -147,10 +149,12 @@ def build_message(result, limit=8):
                 f"  Stock: {r['cantidad_disponible']:.0f} · Cobertura: {coverage} · Próxima visita: {next_visit}",
             ]
         lines.append("")
+    lines.append("💰 *RESUMEN DE COMPRA*")
+    if critical_count:
+        lines.append(f"🔴 Críticos ({critical_count}): *USD {money_es(critical_cost)}*")
+    if high_count:
+        lines.append(f"🟡 Prioridad alta ({high_count}): *USD {money_es(high_cost)}*")
     lines += [
-        "💰 *RESUMEN DE COMPRA*",
-        f"🔴 Críticos ({critical_count}): *USD {money_es(critical_cost)}*",
-        f"🟡 Prioridad alta ({high_count}): *USD {money_es(high_cost)}*",
         f"💵 *Total general: USD {money_es(total_cost)}*",
         f"📋 Productos por comprar: {len(total_buy)}",
     ]

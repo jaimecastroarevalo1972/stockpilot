@@ -1,4 +1,5 @@
 from io import BytesIO
+from urllib.parse import quote
 import pandas as pd
 import streamlit as st
 from inventory_engine import load_workbook, calculate_recommendations, build_message
@@ -68,7 +69,7 @@ def recommendation_cards(data, icon):
 
 st.set_page_config(page_title="StockPilot", page_icon="📦", layout="wide")
 st.title("StockPilot")
-st.caption("Recomendaciones de compra e inventario para tiendas y micromercados · versión 0.11")
+st.caption("Recomendaciones de compra e inventario para tiendas y micromercados · versión 0.12")
 with st.sidebar:
     st.header("Configuración")
     history_days = st.slider("Días de ventas para analizar", 14, 90, 56, 7)
@@ -115,7 +116,7 @@ c2.metric("Urgentes", len(urgent))
 c3.metric("Prioridad alta", len(high))
 c4.metric("Con exceso", len(excess))
 
-tab_buy, tab_provider, tab_inventory, tab_products, tab_whatsapp, tab_detail = st.tabs(["Qué comprar", "Proveedores", "Inventario", "Productos", "WhatsApp", "Detalle"])
+tab_buy, tab_whatsapp, tab_provider, tab_inventory, tab_products, tab_detail = st.tabs(["Qué comprar", "WhatsApp", "Proveedores", "Inventario", "Productos", "Detalle"])
 
 with tab_buy:
     st.subheader(f"Recomendaciones prioritarias (USD {money(urgent['costo_compra_sugerida'].sum())})")
@@ -188,9 +189,20 @@ with tab_products:
     st.dataframe(product_data, use_container_width=True, hide_index=True)
 
 with tab_whatsapp:
-    st.subheader("Mensaje para WhatsApp")
-    st.caption("Use el botón de copiar del recuadro y pegue el contenido en WhatsApp.")
-    st.code(build_message(result, limit=12), language=None)
+    st.subheader("Enviar por WhatsApp")
+    st.caption("Revise las recomendaciones y elija qué pedido desea enviar.")
+    critical_message = build_message(result, limit=12, priorities=["URGENTE"])
+    full_message = build_message(result, limit=12, priorities=["URGENTE", "COMPRAR"])
+    critical_url = "https://wa.me/?text=" + quote(critical_message, safe="")
+    full_url = "https://wa.me/?text=" + quote(full_message, safe="")
+    button_critical, button_full = st.columns(2)
+    with button_critical:
+        st.link_button("🔴 Enviar solo críticos", critical_url, use_container_width=True)
+    with button_full:
+        st.link_button("🟡 Enviar pedido completo", full_url, type="primary", use_container_width=True)
+    st.caption("WhatsApp se abrirá con el mensaje preparado. Seleccione el destinatario y confirme el envío.")
+    preview = st.radio("Vista previa", ["Pedido completo", "Solo críticos"], horizontal=True)
+    st.code(full_message if preview == "Pedido completo" else critical_message, language=None)
 
 with tab_detail:
     st.subheader("Detalle del cálculo")
