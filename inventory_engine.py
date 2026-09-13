@@ -122,7 +122,11 @@ def build_message(result, limit=8):
     buy = result[result["cantidad_sugerida"] > 0].head(limit)
     total_buy = result[result["cantidad_sugerida"] > 0]
     report_date = result["fecha_inventario"].max().strftime("%d/%m/%y")
-    total_cost = f"{total_buy['costo_compra_sugerida'].sum():,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    def money_es(value):
+        return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    critical_cost = total_buy.loc[total_buy["prioridad"] == "URGENTE", "costo_compra_sugerida"].sum()
+    high_cost = total_buy.loc[total_buy["prioridad"] == "COMPRAR", "costo_compra_sugerida"].sum()
+    total_cost = critical_cost + high_cost
     lines = ["📦 *STOCKPILOT – COMPRA SUGERIDA*", f"🗓️ {report_date}", ""]
     for provider, group in buy.groupby("proveedor", sort=False):
         lines.append(f"*{provider}*")
@@ -141,7 +145,13 @@ def build_message(result, limit=8):
                 f"  Stock: {r['cantidad_disponible']:.0f} · Cobertura: {coverage} · Próxima visita: {next_visit}",
             ]
         lines.append("")
-    lines += [f"💰 *Compra estimada: USD {total_cost}*", f"📋 Productos por comprar: {len(total_buy)}"]
+    lines += [
+        "💰 *RESUMEN DE COMPRA*",
+        f"🔴 Críticos: *USD {money_es(critical_cost)}*",
+        f"🟡 Prioridad alta: *USD {money_es(high_cost)}*",
+        f"💵 *Total general: USD {money_es(total_cost)}*",
+        f"📋 Productos por comprar: {len(total_buy)}",
+    ]
     if len(total_buy) > limit:
         lines.append(f"Además, hay {len(total_buy)-limit} productos por revisar en StockPilot.")
     return "\n".join(lines)
