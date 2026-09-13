@@ -10,21 +10,36 @@ def money(value):
 
 def provider_summary(data):
     if data.empty:
-        return pd.DataFrame(columns=["Proveedor", "Pedido (paquetes × unidades)", "Costo USD"])
+        return pd.DataFrame(columns=["Proveedor", "Producto", "Pedido", "Costo USD"])
     rows = []
     for provider, group in data.groupby("proveedor", sort=False):
-        details = []
-        for _, row in group.iterrows():
+        for index, (_, row) in enumerate(group.iterrows()):
             packages = int(row["paquetes_sugeridos"])
-            details.append(
-                f"{row['nombre_producto']}: {packages} × {row['unidades_por_paquete']:.0f}"
-            )
+            rows.append({
+                "Proveedor": provider if index == 0 else "",
+                "Producto": row["nombre_producto"],
+                "Pedido": f"{packages} × {row['unidades_por_paquete']:.0f}",
+                "Costo USD": row["costo_compra_sugerida"],
+            })
         rows.append({
-            "Proveedor": provider,
-            "Pedido (paquetes × unidades)": " · ".join(details),
+            "Proveedor": "",
+            "Producto": f"Total {provider}",
+            "Pedido": "",
             "Costo USD": group["costo_compra_sugerida"].sum(),
         })
-    return pd.DataFrame(rows).sort_values("Costo USD", ascending=False)
+    return pd.DataFrame(rows)
+
+
+def show_provider_summary(summary, empty_message):
+    if summary.empty:
+        st.info(empty_message)
+        return
+    def highlight_total(row):
+        is_total = str(row["Producto"]).startswith("Total ")
+        style = "background-color: #D1FAE5; color: #065F46; font-weight: bold" if is_total else ""
+        return [style] * len(row)
+    styled = summary.style.apply(highlight_total, axis=1).format({"Costo USD": "USD {:,.2f}"})
+    st.dataframe(styled, use_container_width=True, hide_index=True)
 
 
 def recommendation_cards(data, icon):
@@ -53,7 +68,7 @@ def recommendation_cards(data, icon):
 
 st.set_page_config(page_title="StockPilot", page_icon="📦", layout="wide")
 st.title("StockPilot")
-st.caption("Recomendaciones de compra e inventario para tiendas y micromercados · versión 0.10")
+st.caption("Recomendaciones de compra e inventario para tiendas y micromercados · versión 0.11")
 with st.sidebar:
     st.header("Configuración")
     history_days = st.slider("Días de ventas para analizar", 14, 90, 56, 7)
@@ -132,15 +147,9 @@ with tab_buy:
 
     st.subheader(f"Resumen de compras por proveedor (USD {money(buy['costo_compra_sugerida'].sum())})")
     st.markdown(f"**Críticos — Total: USD {money(urgent['costo_compra_sugerida'].sum())}**")
-    if urgent_summary.empty:
-        st.info("No hay compras críticas.")
-    else:
-        st.dataframe(urgent_summary, use_container_width=True, hide_index=True)
+    show_provider_summary(urgent_summary, "No hay compras críticas.")
     st.markdown(f"**Prioridad alta — Total: USD {money(high['costo_compra_sugerida'].sum())}**")
-    if high_summary.empty:
-        st.info("No hay compras de prioridad alta.")
-    else:
-        st.dataframe(high_summary, use_container_width=True, hide_index=True)
+    show_provider_summary(high_summary, "No hay compras de prioridad alta.")
 
 with tab_provider:
     st.subheader("Información de proveedores")
