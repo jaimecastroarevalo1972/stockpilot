@@ -126,12 +126,14 @@ def build_message(result, limit=8):
         return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     critical_cost = total_buy.loc[total_buy["prioridad"] == "URGENTE", "costo_compra_sugerida"].sum()
     high_cost = total_buy.loc[total_buy["prioridad"] == "COMPRAR", "costo_compra_sugerida"].sum()
+    critical_count = (total_buy["prioridad"] == "URGENTE").sum()
+    high_count = (total_buy["prioridad"] == "COMPRAR").sum()
     total_cost = critical_cost + high_cost
     lines = ["📦 *STOCKPILOT – COMPRA SUGERIDA*", f"🗓️ {report_date}", ""]
     for provider, group in buy.groupby("proveedor", sort=False):
         lines.append(f"*{provider}*")
         for _, r in group.iterrows():
-            icon = "🔴" if r["prioridad"] == "URGENTE" else "🟠"
+            icon = "🔴" if r["prioridad"] == "URGENTE" else "🟡"
             pack = "paquete" if r["paquetes_sugeridos"] == 1 else "paquetes"
             if math.isfinite(r["dias_cobertura"]):
                 coverage_days = round(r["dias_cobertura"])
@@ -147,8 +149,8 @@ def build_message(result, limit=8):
         lines.append("")
     lines += [
         "💰 *RESUMEN DE COMPRA*",
-        f"🔴 Críticos: *USD {money_es(critical_cost)}*",
-        f"🟡 Prioridad alta: *USD {money_es(high_cost)}*",
+        f"🔴 Críticos ({critical_count}): *USD {money_es(critical_cost)}*",
+        f"🟡 Prioridad alta ({high_count}): *USD {money_es(high_cost)}*",
         f"💵 *Total general: USD {money_es(total_cost)}*",
         f"📋 Productos por comprar: {len(total_buy)}",
     ]
